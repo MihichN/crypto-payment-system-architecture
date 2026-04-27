@@ -8,7 +8,7 @@ This repository exists to show system ownership: how the product is decomposed, 
 
 ZyraPayments is a crypto payment system for merchants. It lets a merchant create invoices, show customers a crypto checkout page, track payment status, and manage operations from a dashboard.
 
-The hard part is not rendering a checkout form. The hard part is keeping payment state correct when external providers, blockchain confirmations, merchant retries, webhooks, and customer-facing timers all interact.
+The hard part is not rendering a checkout form. The hard part is keeping payment state correct when external providers, blockchain confirmations, merchant retries, webhooks, customer-facing timers, and merchant expectations all interact.
 
 ## Impact
 
@@ -17,6 +17,28 @@ The hard part is not rendering a checkout form. The hard part is keeping payment
 - Created a merchant-facing dashboard model for payment visibility and operational analytics.
 - Separated customer-facing checkout from lifecycle-critical payment API logic.
 - Packaged the system into public-safe architecture and service-level showcases without exposing private payment logic.
+- Designed around provider delays, duplicate events, and the lack of perfect real-time guarantees in crypto payments.
+- Introduced explicit lifecycle rules to reduce merchant-facing ambiguity during payment edge cases.
+
+## Reality of the System
+
+This system was designed as a real merchant-facing payment product, not just an API demo.
+
+It had to handle:
+
+- merchants retrying requests after network failures;
+- customers waiting on checkout pages for payment status;
+- delayed blockchain/provider confirmations;
+- webhook events arriving late, duplicated, or out of order;
+- dashboard views where incorrect totals would create business confusion.
+
+This influenced multiple decisions:
+
+- modeling invoice state explicitly instead of relying on ad hoc status updates;
+- treating terminal states as protected;
+- separating checkout UX from payment lifecycle ownership;
+- making idempotency part of the API contract;
+- designing reconciliation and observability around confirmation lag.
 
 ## My Role
 
@@ -130,6 +152,24 @@ Solution: secrets are excluded from public repos; production credentials stay in
 - Provider API becomes unavailable during checkout status polling.
 
 Each scenario can create real merchant-facing inconsistencies if invoice lifecycle rules are not explicit.
+
+## Example Failure Case
+
+A typical failure scenario:
+
+- merchant creates an invoice request;
+- the API processes it successfully;
+- merchant system times out before receiving the response;
+- merchant retries the same request;
+- without idempotency, the same business order could create duplicate invoices.
+
+Handling this required:
+
+- idempotency keys tied to merchant intent;
+- payload-aware retry handling;
+- explicit invoice lifecycle rules;
+- stable API responses for safe retries;
+- dashboard semantics based on normalized invoice state.
 
 ## Deep Dive: Payment Idempotency and State
 
