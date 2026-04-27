@@ -1,6 +1,6 @@
 # Crypto Payment System Architecture
 
-System-level architecture case study for a crypto payment platform: merchant dashboard, payment API, checkout page, wallet prototype, landing page, and provider integration boundaries.
+System-level architecture case study of a crypto payment platform built end-to-end by a founder/lead engineer, covering architecture decisions, failure scenarios, and production risks.
 
 This repository exists to show system ownership: how the product is decomposed, why the boundaries exist, what engineering risks matter, and which parts were designed and implemented by me. Service-level repositories are linked below as implementation details.
 
@@ -19,6 +19,20 @@ The hard part is not rendering a checkout form. The hard part is keeping payment
 - Packaged the system into public-safe architecture and service-level showcases without exposing private payment logic.
 - Designed around provider delays, duplicate events, and the lack of perfect real-time guarantees in crypto payments.
 - Introduced explicit lifecycle rules to reduce merchant-facing ambiguity during payment edge cases.
+- Built a system that can tolerate retries, delayed confirmations, and duplicated provider events without creating contradictory invoice states.
+- Designed payment workflows where customer-facing checkout and merchant-facing dashboard state stay understandable under imperfect provider behavior.
+
+## System Constraints
+
+This system was built under real-world constraints:
+
+- no control over blockchain/provider confirmation timing;
+- no guarantee that webhook events arrive once or in order;
+- merchant systems can retry after network timeouts;
+- checkout pages must remain understandable while payment state is still pending;
+- dashboard totals must not misrepresent payment lifecycle semantics.
+
+These constraints shaped most architectural decisions.
 
 ## Reality of the System
 
@@ -55,6 +69,8 @@ My responsibilities included:
 - designing merchant-facing API contracts and dashboard data models;
 - handling production risks around retries, duplicate events, expiration races, and provider instability;
 - documenting API contracts, trade-offs, and operational concerns.
+
+I was accountable for system behavior as a whole, not just individual services.
 
 ## System Diagram
 
@@ -170,6 +186,12 @@ Handling this required:
 - explicit invoice lifecycle rules;
 - stable API responses for safe retries;
 - dashboard semantics based on normalized invoice state.
+
+Outcome:
+
+- duplicate invoice risk is reduced;
+- merchant retries become safe and predictable;
+- dashboard and checkout state remain explainable during edge cases.
 
 ## Deep Dive: Payment Idempotency and State
 
