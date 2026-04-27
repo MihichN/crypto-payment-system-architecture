@@ -10,17 +10,29 @@ ZyraPayments is a crypto payment system for merchants. It lets a merchant create
 
 The hard part is not rendering a checkout form. The hard part is keeping payment state correct when external providers, blockchain confirmations, merchant retries, webhooks, and customer-facing timers all interact.
 
+## Impact
+
+- Built a crypto payments product architecture covering merchant operations, checkout, payment lifecycle, and wallet-facing flows.
+- Designed invoice state handling for retries, delayed confirmations, and duplicate provider events.
+- Created a merchant-facing dashboard model for payment visibility and operational analytics.
+- Separated customer-facing checkout from lifecycle-critical payment API logic.
+- Packaged the system into public-safe architecture and service-level showcases without exposing private payment logic.
+
 ## My Role
 
-I designed the product architecture and service boundaries, selected the stack, implemented key backend/frontend parts, and packaged the system into public-safe engineering showcases.
+I built this system end-to-end as a founder/lead engineer and hands-on implementer.
+
+I owned the product architecture, wrote the core code, defined service boundaries, designed lifecycle rules, and made the engineering decisions required to move from idea to a working payment platform.
 
 My responsibilities included:
 
 - defining the invoice lifecycle and state transitions;
 - separating checkout, merchant dashboard, payment API, wallet UI, and marketing surface;
 - designing idempotency and webhook-processing strategy;
-- documenting API contracts and operational concerns;
-- building representative frontend/backend flows with TypeScript, Next.js, Node.js, Express, and MySQL.
+- implementing key backend and frontend flows with TypeScript, Next.js, Node.js, Express, and MySQL;
+- designing merchant-facing API contracts and dashboard data models;
+- handling production risks around retries, duplicate events, expiration races, and provider instability;
+- documenting API contracts, trade-offs, and operational concerns.
 
 ## System Diagram
 
@@ -107,6 +119,46 @@ Problem: payment systems involve API keys, webhook secrets, private keys, RPC cr
 
 Solution: secrets are excluded from public repos; production credentials stay in private environment/configuration.
 
+## Failure Scenarios I Designed For
+
+- Merchant retries invoice creation after a timeout.
+- Provider sends duplicate webhook events.
+- Customer pays close to invoice expiration time.
+- Webhook arrives after invoice is already terminal.
+- Blockchain/provider confirmation is delayed.
+- Dashboard totals drift from payment ledger semantics.
+- Provider API becomes unavailable during checkout status polling.
+
+Each scenario can create real merchant-facing inconsistencies if invoice lifecycle rules are not explicit.
+
+## Deep Dive: Payment Idempotency and State
+
+One of the hardest problems was designing invoice state so payment operations remain correct under retries and asynchronous provider updates.
+
+Challenges:
+
+- merchants retry requests after network failures;
+- provider events can arrive late or more than once;
+- expiration jobs can race with confirmations;
+- checkout pages need fast status reads;
+- dashboard analytics depend on consistent payment semantics.
+
+Solution:
+
+- invoice status is modeled as an explicit state machine;
+- terminal states such as `paid` and `expired` are protected;
+- invoice creation requires idempotency semantics;
+- provider/webhook logic is isolated from lifecycle rules;
+- dashboard data is derived from normalized invoice state.
+
+Trade-off:
+
+- strict lifecycle modeling adds upfront complexity, but prevents ambiguous payment states later.
+
+Result:
+
+- the system can tolerate merchant retries and provider event delays without creating duplicate or contradictory invoice states.
+
 ## Trade-Offs
 
 | Decision | Benefit | Cost |
@@ -117,16 +169,25 @@ Solution: secrets are excluded from public repos; production credentials stay in
 | OpenAPI contracts | Better integration clarity | Requires contract discipline |
 | Public showcase repos | Demonstrates architecture safely | Full production code remains private |
 
-## Production Concerns
+## Production Risks
 
-- Webhook signature verification.
-- Provider event deduplication.
-- Idempotency records retention.
-- Invoice expiration jobs.
-- Merchant-scoped access control.
-- API key hashing and rotation.
-- Observability for confirmation latency and reconciliation lag.
-- Incident playbooks for delayed confirmations and provider outages.
+Key risks in this system:
+
+- duplicate invoice creation from merchant retries;
+- late or duplicate provider events;
+- incorrect terminal state transitions;
+- unsafe merchant access across account boundaries;
+- provider outage during active checkout sessions;
+- dashboard analytics showing misleading financial totals.
+
+Mitigation included:
+
+- idempotency keys;
+- state-machine-based invoice lifecycle;
+- provider event deduplication;
+- merchant-scoped access control;
+- webhook verification strategy;
+- reconciliation and observability around confirmation lag.
 
 ## Approximate Scale Targets
 
